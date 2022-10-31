@@ -13,7 +13,19 @@ int main(int argc, char **argv) {
     boost::asio::io_service io_service;
 
     nexthink::TCPClient client(address, port);
+
+    std::thread client_thread{[&client]() { client.runUpdaterSystem(); }};
+
     client.run();
+
+    while (true) {
+        std::cout << "Client Working... " << std::endl;
+        client.run();
+        sleep(1);
+    }
+
+    // client.close();
+    client_thread.join();
 
     return 0;
 }

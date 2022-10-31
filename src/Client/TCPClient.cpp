@@ -1,5 +1,6 @@
 #include "TCPClient.h"
 
+#include <chrono>
 #include <iomanip>
 #include <vector>
 
@@ -11,13 +12,8 @@ TCPClient::TCPClient(const std::string& ip, const unsigned int port) : socket_(i
     endpoint_ = boost::asio::ip::tcp::endpoint(boost_address, port);
 }
 
-void TCPClient::run() {
-    boost::system::error_code error_code;
-    socket_.connect(endpoint_, error_code);
-
-    if (!error_code) {
-        asyncWrite();
-    }
+void TCPClient::runUpdaterSystem() {
+    asyncWrite();
 
     io_service_.run();
 }
@@ -43,25 +39,36 @@ void TCPClient::handleRead(const boost::system::error_code error_code, const siz
         socket_.close();
     } else {
         const char* data = boost::asio::buffer_cast<const char*>(received_buffer->data());
-        std::cout << "Client Read: " << bytes_transferred << " bytes. -> " << received_buffer << std::endl;
-        // TODO sleep and new socket creation
-        // asyncWrite();
+        std::cout << "Client Read: " << bytes_transferred << " bytes. Message: " << received_buffer;  // TODO: Debug print
         ServerMessage new_msg;
         if (decodeMessage(data, new_msg)) {
-            if (new_msg.version != current_version_) {
+            if (current_version_ < new_msg.version) {
                 readNewVersion(new_msg.path.c_str());
             }
         }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        socket_.close();
+        asyncWrite();
     }
 }
 
 void TCPClient::asyncWrite() {
-    socket_.async_write_some(
-        boost::asio::buffer(version_request_, version_request_.size()),
-        boost::bind(&TCPClient::handleWrite,
-                    this,
-                    boost::asio::placeholders::error,
-                    boost::asio::placeholders::bytes_transferred));
+    boost::system::error_code error_code;
+    socket_.connect(endpoint_, error_code);
+
+    if (!error_code) {
+        socket_.async_write_some(
+            boost::asio::buffer(version_request_, version_request_.size()),
+            boost::bind(&TCPClient::handleWrite,
+                        this,
+                        boost::asio::placeholders::error,
+                        boost::asio::placeholders::bytes_transferred));
+    } else {
+        std::cout << "Client Warning Connecting to socket: " << error_code.message() << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+        asyncWrite();
+    }
 }
 
 void TCPClient::handleWrite(const boost::system::error_code error_code, const size_t bytes_transferred) {
@@ -74,14 +81,14 @@ void TCPClient::handleWrite(const boost::system::error_code error_code, const si
     }
 }
 
-// void TCPClient::functional() {
-//     std::cout << "Current version: " << std::endl;
-//     while (true) {
-//         if (new_version) {
-//             std::cout << "New version: " << std::endl;
-//         }
-//     }
-// }
+void TCPClient::run() {
+    if (updated_) {
+        float version = current_version_ / 100.0;
+        std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
+        updated_ = false;
+        // TODO: Lets see if you can call here the function from the shared lib
+    }
+}
 
 bool TCPClient::decodeMessage(const char* message, ServerMessage& message_decoded) {
     bool successful = false;
@@ -96,11 +103,11 @@ bool TCPClient::decodeMessage(const char* message, ServerMessage& message_decode
         splitted_string.push_back(item);
     }
 
-    if (splitted_string.size() == 2) {
+    if (splitted_string.size() == 2) {  // TODO: This to a constant inside ServerMessage
         successful = true;
         message_decoded.version = stoi(splitted_string[ServerMessage::E_VERSION_IDX]);
         message_decoded.path = splitted_string[ServerMessage::E_PATH_IDX];
-        message_decoded.path.pop_back();  // To remove \n char
+        message_decoded.path.pop_back();  // For removing \n char
 
     } else {
         successful = false;
@@ -111,7 +118,7 @@ bool TCPClient::decodeMessage(const char* message, ServerMessage& message_decode
 }
 
 void TCPClient::readNewVersion(const char* path) {
-    // open the library
+    // Open the library
     std::cout << "Client Opening " << path << std::endl;
 
     void* handle = dlopen(path, RTLD_LAZY);
@@ -121,12 +128,12 @@ void TCPClient::readNewVersion(const char* path) {
         return;
     }
 
-    // load the symbol
-    std::cout << "Client Loading symbol getVersion..." << std::endl;
-
-    // reset errors
+    // Reset errors
     dlerror();
-    getVersion_tdef getVersion = (getVersion_tdef)dlsym(handle, "getVersion");
+
+    // Load the symbol
+    getVersion_tdef getVersion = (getVersion_tdef)dlsym(handle, "getVersion");  // TODO: Here test if we can save it to a private attribute for using it in run()
+
     const char* dlsym_error = dlerror();
     if (dlsym_error) {
         std::cerr << "Client Cannot load symbol 'getVersion': " << dlsym_error << std::endl;
@@ -134,13 +141,11 @@ void TCPClient::readNewVersion(const char* path) {
         return;
     }
 
-    // use it to do the calculation
-    std::cout << "Client Calling getVersion...\n";
     int new_version = getVersion();
     current_version_ = new_version;
-    float version = new_version / 100;
-    std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
+    updated_ = true;
 
+    // TODO: Manage the closing in the stop or in destructor
     // close the library
     std::cout << "Client Closing library...\n";
     dlclose(handle);

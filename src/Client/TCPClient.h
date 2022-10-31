@@ -28,6 +28,8 @@ class TCPClient {
    public:
     TCPClient(const std::string& address, const unsigned int port);
 
+    void runUpdaterSystem();
+
     void run();
 
    private:
@@ -48,6 +50,7 @@ class TCPClient {
     std::string version_request_ = "Version Request\n";
 
     int current_version_;
+    bool updated_;
 };
 
 }  // namespace nexthink
