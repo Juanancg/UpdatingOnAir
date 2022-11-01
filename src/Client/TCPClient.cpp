@@ -13,6 +13,7 @@ TCPClient::TCPClient(const std::string& ip, const unsigned int port) : socket_(i
     endpoint_ = boost::asio::ip::tcp::endpoint(boost_address, port);
 
     handler_shared_lib_ = nullptr;
+    getVersion_ = nullptr;
     getInfoFromMetadata();
 
     // This is updated due to the requirement:
@@ -27,14 +28,16 @@ TCPClient::~TCPClient() {
 
 void TCPClient::run() {
     if (updated_) {
-        // Call here the function from the shared lib to check if it can run the functional updated code here
-        int new_version = getVersion_();
+        if (getVersion_ != nullptr) {
+            // Call here the function from the shared lib to check if it can run the functional updated code here
+            int new_version = getVersion_();
 
-        current_version_ = new_version;
-        float version = current_version_ / 100.0;
+            current_version_ = new_version;
+            float version = current_version_ / 100.0;
 
-        std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
-        updated_ = false;
+            std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
+            updated_ = false;
+        }
     }
 }
 
@@ -172,6 +175,7 @@ void TCPClient::readSharedLib(const char* path) {
     if (dlsym_error) {
         std::cerr << "Client Cannot load symbol 'getVersion': " << dlsym_error << std::endl;
         dlclose(handler_shared_lib_);
+        getVersion_ = nullptr;
         return;
     }
 }
