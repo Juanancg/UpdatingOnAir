@@ -5,7 +5,7 @@
 #include "TCPServer.h"
 
 int main(int argc, char** argv) {
-    std::cout << "Asynch TCP Server updater" << std::endl;
+    std::cout << "Asynch TCP Server updater started" << std::endl;
 
     // For accepting new versions without having to touch the code
     std::string message = "";

@@ -36,21 +36,21 @@ void TCPConnection::write() {
 }
 
 void TCPConnection::handleRead(const boost::system::error_code& err_code, const size_t bytes_transferred) {
-    if (err_code) {
-        std::cerr << "error: " << err_code.message() << std::endl;
-        socket_.close();
+    if (!err_code) {
+        std::cout << "Server message received: " << data_received_;
     } else {
-        std::cout << data_received_ << std::endl;
+        std::cerr << "Server reading in socket Error: " << err_code.message() << std::endl;
+        socket_.close();
     }
     write();
 }
 
 void TCPConnection::handleWrite(const boost::system::error_code& err_code, const size_t bytes_transferred) {
-    if (err_code) {
-        std::cerr << "error: " << err_code.message() << std::endl;
-        socket_.close();
+    if (!err_code) {
+        std::cout << "Server Sent: " << bytes_transferred << " bytes: " << msg_to_send_;
     } else {
-        std::cout << "Sent: " << bytes_transferred << " bytes: " << msg_to_send_;
+        std::cerr << "Server writing in socket Error: " << err_code.message() << std::endl;
+        socket_.close();
     }
 }
 
