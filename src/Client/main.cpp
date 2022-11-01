@@ -24,7 +24,6 @@ int main(int argc, char **argv) {
         sleep(1);
     }
 
-    // client.close();
     client_thread.join();
 
     return 0;
