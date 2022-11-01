@@ -113,7 +113,7 @@ cd bin
 
 * The code of TCPConnection and TCPClient could be refactored using OOP and Inheritance.
 
-* Use googletest for unit testing the code. I have tested a lot of functional cases, but with unit tests it should be more maintanable for future improvements.
+* Use googletest for unit testing the code. I have tested a lot of functional cases, but with unit tests it should be more maintainable for future improvements.
 
 ## References
 
