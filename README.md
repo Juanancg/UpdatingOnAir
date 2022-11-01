@@ -120,4 +120,5 @@ cd bin
 * For linux shared libraries management <https://tldp.org/HOWTO/html_single/C++-dlopen/#externC>
 * For compile shared libraries in Linux <https://stackoverflow.com/questions/496664/c-dynamic-shared-library-on-linux>
 * For boost TCP connections <https://www.boost.org/doc/libs/1_62_0/doc/html/boost_asio/examples/cpp11_examples.html>
+* For using PlantUML <https://plantuml.com/es/sequence-diagram>
 * For showing multithread in UML <https://stackoverflow.com/questions/1643733/how-to-illustrate-multiple-threads-in-sequence-diagram>
