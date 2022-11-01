@@ -1,6 +1,7 @@
 #include "TCPClient.h"
 
 #include <chrono>
+#include <fstream>
 #include <iomanip>
 #include <vector>
 
@@ -11,14 +12,30 @@ TCPClient::TCPClient(const std::string& ip, const unsigned int port) : socket_(i
     boost::asio::ip::address boost_address = boost::asio::ip::address::from_string(ip);
     endpoint_ = boost::asio::ip::tcp::endpoint(boost_address, port);
 
-    current_version_ = 0;
-    updated_ = false;
     handler_shared_lib_ = nullptr;
+    getInfoFromMetadata();
+
+    // This is updated due to the requirement:
+    // Prints its version to the console whenever the application is launched or after an update
+    updated_ = true;
 }
 
 TCPClient::~TCPClient() {
-    std::cout << "Client Closing library...\n";
+    std::cout << "Client Closing library..." << std::endl;
     dlclose(handler_shared_lib_);
+}
+
+void TCPClient::run() {
+    if (updated_) {
+        // Call here the function from the shared lib to check if it can run the functional updated code here
+        int new_version = getVersion_();
+
+        current_version_ = new_version;
+        float version = current_version_ / 100.0;
+
+        std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
+        updated_ = false;
+    }
 }
 
 void TCPClient::runUpdaterSystem() {
@@ -43,25 +60,26 @@ void TCPClient::asyncRead() {
 }
 
 void TCPClient::handleRead(const boost::system::error_code error_code, const size_t bytes_transferred, std::shared_ptr<boost::asio::streambuf> received_buffer) {
-    if (error_code) {
-        std::cerr << "Client Read Error: " << error_code.message() << " Closing socket" << std::endl;
-        socket_.close();
-    } else {
+    if (!error_code) {
         const char* data = boost::asio::buffer_cast<const char*>(received_buffer->data());
-        // std::cout << "Client Read: " << bytes_transferred << " bytes. Message: " << received_buffer;  // TODO: Debug print
 
         ServerMessage new_msg;
 
         if (decodeMessage(data, new_msg)) {
             if (current_version_ < new_msg.version) {
-                readNewVersion(new_msg.path.c_str());
+                readNewVersion(new_msg);
             }
         } else {
             std::cout << "Client Warning decodeMessage failed" << std::endl;
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(UPDATE_REQUEST_TIMER));
         socket_.close();
         asyncWrite();
+
+    } else {
+        std::cerr << "Client Read Error: " << error_code.message() << " Closing socket" << std::endl;
+        socket_.close();
     }
 }
 
@@ -78,33 +96,22 @@ void TCPClient::asyncWrite() {
                         boost::asio::placeholders::bytes_transferred));
     } else {
         std::cout << "Client Warning Connecting to socket: " << error_code.message() << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(UPDATE_REQUEST_TIMER));
 
+        // Wait before another try to connect to the socket
+        std::this_thread::sleep_for(std::chrono::milliseconds(UPDATE_REQUEST_TIMER));
         asyncWrite();
     }
 }
 
 void TCPClient::handleWrite(const boost::system::error_code error_code, const size_t bytes_transferred) {
-    if (error_code) {
+    if (!error_code) {
+        std::cout << "Client Sent "
+                  << "(" << bytes_transferred << " bytes): " << version_request_ << std::endl;
+        asyncRead();
+
+    } else {
         std::cerr << "Client Write Error: " << error_code.message() << " Closing socket" << std::endl;
         socket_.close();
-    } else {
-        std::cout << "Client Sent "
-                  << " (" << bytes_transferred << " bytes): " << version_request_ << std::endl;
-        asyncRead();
-    }
-}
-
-void TCPClient::run() {
-    if (updated_) {
-        // Call here the function from the shared lib to check if it can run the functional updated code here
-        int new_version = getVersion_();
-
-        current_version_ = new_version;
-        float version = current_version_ / 100.0;
-
-        std::cout << "Client New Version: " << std::setprecision(2) << std::fixed << version << std::endl;
-        updated_ = false;
     }
 }
 
@@ -137,10 +144,18 @@ bool TCPClient::decodeMessage(const char* message, ServerMessage& message_decode
     return successful;
 }
 
-void TCPClient::readNewVersion(const char* path) {
-    // Open the library
-    std::cout << "Client Opening " << path << std::endl;
+void TCPClient::readNewVersion(const ServerMessage new_msg) {
+    // Get the info from the shared lib and save it to the private pointer to the function
+    readSharedLib(new_msg.path.c_str());
+    updated_ = true;
 
+    // Save the new info to the metadata file for future executions
+    saveDataToMetadata(new_msg);
+}
+
+void TCPClient::readSharedLib(const char* path) {
+    // Open the library
+    // std::cout << "Client Opening " << path << std::endl; // NOTE: DEBUG PRINTS
     handler_shared_lib_ = dlopen(path, RTLD_LAZY);
 
     if (!handler_shared_lib_) {
@@ -159,8 +174,34 @@ void TCPClient::readNewVersion(const char* path) {
         dlclose(handler_shared_lib_);
         return;
     }
+}
 
-    updated_ = true;
+void TCPClient::getInfoFromMetadata() {
+    std::string line;
+    std::ifstream metadata_file(metadata_file_);
+    if (metadata_file.is_open()) {
+        // First line: current version
+        getline(metadata_file, line);
+        current_version_ = stoi(line);
+
+        // Second line: Path to the shared lib
+        getline(metadata_file, line);
+        std::string path_to_shared_lib = line;
+
+        // Get the info from the shared lib and save it to the private pointer to the function
+        readSharedLib(path_to_shared_lib.c_str());
+        metadata_file.close();
+    }
+}
+
+void TCPClient::saveDataToMetadata(const ServerMessage new_msg) {
+    std::ofstream client_version_file(metadata_file_);
+    if (client_version_file.is_open()) {
+        client_version_file << new_msg.version;
+        client_version_file << "\n";
+        client_version_file << new_msg.path;
+        client_version_file.close();
+    }
 }
 
 }  // namespace nexthink

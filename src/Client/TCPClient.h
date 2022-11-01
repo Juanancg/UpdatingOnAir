@@ -44,7 +44,10 @@ class TCPClient {
     void handleWrite(const boost::system::error_code error_code, const size_t bytes_transferred);
 
     bool decodeMessage(const char* message, ServerMessage& message_decoded);
-    void readNewVersion(const char* path);
+    void readNewVersion(const ServerMessage new_msg);
+    void readSharedLib(const char* path);
+    void getInfoFromMetadata();
+    void saveDataToMetadata(const ServerMessage new_msg);
 
     boost::asio::io_service io_service_;
     boost::asio::ip::tcp::socket socket_;
@@ -52,6 +55,7 @@ class TCPClient {
 
     std::string version_request_ = "Version Request\n";
     const unsigned int UPDATE_REQUEST_TIMER = 5000;  // In ms
+    const std::string metadata_file_ = "metadata.txt";
 
     int current_version_;
     bool updated_;
