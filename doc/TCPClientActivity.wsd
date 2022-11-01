@@ -1,0 +1,23 @@
+@startuml TCPClientActivity
+title TCPClient - Main Activity
+Operator -> TCPClient : run
+activate TCPClient
+par
+loop [infinite]
+TCPClient -> TCPClient : runFuncionalCode
+end
+else
+loop [infinite]
+TCPClient -> TCPClient : runUpdaterSystem
+TCPClient --> TCPServer : version_request
+TCPServer --> TCPClient : send_last_update
+TCPClient -> TCPClient : check_if_is_new_update
+alt new version
+TCPClient -> TCPClient : update_functional_part
+end
+end
+
+
+deactivate TCPClient
+
+@enduml

@@ -1,0 +1,56 @@
+@startuml ClassDiagram
+
+title Classes - Class Diagram
+
+
+class TCPClient {
+	-io_service io_service_
+	-isocket socket_
+	-endpoint endpoint_
+	-string version_request_
+	-unsigned int UPDATE_REQUEST_TIMER
+	-string metadata_file_
+	-int current_version_
+	-bool updated_
+	-void* handler_shared_lib_
+	-getVersion_typedef getVersion_
+    +TCPClient(const std::string& address, const unsigned int port);
+    +~TCPClient();
+    +void runUpdaterSystem();
+    +void run();
+    -void asyncRead();
+    -void handleRead(error_code, bytes_transferred, received_buffer);
+    -void asyncWrite();
+    -void handleWrite(error_code, bytes_transferred);
+    -bool decodeMessage message, message_decoded);
+    -void readNewVersion(new_msg);
+    -void readSharedLib(path);
+    -void getInfoFromMetadata();
+    -void saveDataToMetadata(new_msg);
+}
+
+class TCPServer {
+    -acceptor acceptor_
+    -io_service& io_service_
+    -string message_version_ 
+        +TCPServer(address, port, message_to_send, io_service)
+    -void startAccept()
+    -void handleAccept(err_code, connection)
+    -bool messageSanityCheck( message_to_send)
+}
+class TCPConnection {
+    +TCPConnection( io_service);
+    +socket& getSocket();
+    +void start();
+    +void setMessage(new_message);
+    -void read();
+    -void write();
+    -void handleRead(err_code, bytes_transferred);
+    -void handleWrite(err_code, bytes_transferred);
+    -socket socket_;
+    -string msg_to_send_;
+    -char data_received_[max_length];
+    }
+
+TCPServer "1" *-down- "many" TCPConnection: Composition
+@enduml

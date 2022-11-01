@@ -1,0 +1,13 @@
+@startuml TCPServerActivity
+title TCPServer - MainActivity
+Operator -> TCPServer : run(version)
+activate TCPServer
+
+loop [infinite]
+TCPClient --> TCPServer : version_request
+TCPServer --> TCPClient : send_version [version:path]
+end
+
+deactivate TCPServer
+
+@enduml
