@@ -13,6 +13,10 @@ void TCPConnection::start() {
     read();
 }
 
+void TCPConnection::setMessage(const std::string new_message) {
+    msg_to_send_ = new_message;
+}
+
 void TCPConnection::read() {
     socket_.async_read_some(
         boost::asio::buffer(data_received_, max_length),
@@ -46,7 +50,7 @@ void TCPConnection::handleWrite(const boost::system::error_code& err_code, const
         std::cerr << "error: " << err_code.message() << std::endl;
         socket_.close();
     } else {
-        std::cout << "Sent: " << bytes_transferred << " bytes." << std::endl;
+        std::cout << "Sent: " << bytes_transferred << " bytes: " << msg_to_send_;
     }
 }
 

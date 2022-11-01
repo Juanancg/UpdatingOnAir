@@ -16,6 +16,8 @@ class TCPConnection : public std::enable_shared_from_this<TCPConnection> {
 
     void start();
 
+    void setMessage(const std::string new_message);
+
    private:
     void read();
 
@@ -26,7 +28,7 @@ class TCPConnection : public std::enable_shared_from_this<TCPConnection> {
     void handleWrite(const boost::system::error_code& err_code, const size_t bytes_transferred);
 
     boost::asio::ip::tcp::socket socket_;
-    std::string msg_to_send_ = "100;./SharedLibs/functional_v1_00.so\n";
+    std::string msg_to_send_;
 
     enum { max_length = 128 };
     char data_received_[max_length];
